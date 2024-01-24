@@ -1,17 +1,16 @@
 package main
 
 import (
-	"bytes"
-	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
 )
 
-func CASPathTransformFunc(key string) string {
+func CASPathTransformFunc(key string) PathKey {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
 
@@ -25,10 +24,22 @@ func CASPathTransformFunc(key string) string {
 		paths[i] = hashStr[from:to]
 	}
 
-	return strings.Join(paths, "/")
+	return PathKey{
+		Path:     strings.Join(paths, "/"),
+		Original: hashStr,
+	}
 }
 
-type PathTransformFunc func(string) string
+type PathKey struct {
+	Path     string
+	Original string
+}
+
+func (p PathKey) FileName() string {
+	return fmt.Sprintf("%s/%s", p.Path, p.Original)
+}
+
+type PathTransformFunc func(string) PathKey
 
 type StoreOpts struct {
 	PathTransformFunc PathTransformFunc
@@ -49,25 +60,18 @@ func NewStore(opts StoreOpts) *Store {
 }
 
 func (s *Store) writeStream(key string, r io.Reader) error {
-	pathName := s.PathTransformFunc(key)
-	if err := os.MkdirAll(pathName, os.ModePerm); err != nil {
+	pathKey := s.PathTransformFunc(key)
+	if err := os.MkdirAll(pathKey.Path, os.ModePerm); err != nil {
 		return err
 	}
 
-	buf := new(bytes.Buffer)
-	io.Copy(buf, r)
-	log.Printf("read (%d) bytes from memory: %s", buf.Len(), pathName)
-
-	filenameBytes := md5.Sum(buf.Bytes())
-	filename := hex.EncodeToString(filenameBytes[:])
-	pathAndFilename := pathName + "/" + filename
-
+	pathAndFilename := pathKey.FileName()
 	f, err := os.Create(pathAndFilename)
 	if err != nil {
 		return err
 	}
 
-	n, err := io.Copy(f, buf)
+	n, err := io.Copy(f, r)
 	if err != nil {
 		return err
 	}
