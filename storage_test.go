@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestPathTransformFunc(t *testing.T) {
 		t.Errorf("expected %s, got %s", expectedPathName, pathname)
 	}
 
-	if pathname.Original != expectedOriginalKey {
+	if pathname.Filename != expectedOriginalKey {
 		t.Errorf("expected %s, got %s", expectedPathName, pathname)
 	}
 }
@@ -24,11 +25,23 @@ func TestStore(t *testing.T) {
 		PathTransformFunc: CASPathTransformFunc,
 	}
 	s := NewStore(opts)
+	key := "TripTomorrow"
+	data := bytes.NewReader([]byte("dude chill!!!"))
 
-	data := bytes.NewReader([]byte("hello world"))
-	err := s.writeStream("tester", data)
+	if err := s.writeStream(key, data); err != nil {
+		t.Error(err)
+	}
 
+	r, err := s.Read(key)
 	if err != nil {
 		t.Error(err)
+	}
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(b) != "dude chill!!!" {
+		t.Errorf("expected %s, got %s", "dude chill!!!", string(b))
 	}
 }
