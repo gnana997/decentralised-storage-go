@@ -36,6 +36,14 @@ type PathKey struct {
 	Filename string
 }
 
+func (p PathKey) FirstPathFolder() string {
+	paths := strings.Split(p.Path, "/")
+	if len(paths) == 0 {
+		return ""
+	}
+	return paths[0]
+}
+
 func (p PathKey) FullPath() string {
 	return fmt.Sprintf("%s/%s", p.Path, p.Filename)
 }
@@ -58,6 +66,33 @@ func NewStore(opts StoreOpts) *Store {
 	return &Store{
 		StoreOpts: opts,
 	}
+}
+
+func (s *Store) Has(key string) bool {
+	pathKey := s.PathTransformFunc(key)
+	fi, err := os.Stat(pathKey.FullPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		log.Fatal(err)
+	}
+
+	if !fi.IsDir() {
+		return true
+	}
+
+	return false
+}
+
+func (s *Store) Delete(key string) error {
+	pathKey := s.PathTransformFunc(key)
+
+	defer func() {
+		log.Printf("deleted from disk: %s", pathKey.Filename)
+	}()
+
+	return os.RemoveAll(pathKey.FirstPathFolder())
 }
 
 func (s *Store) Read(key string) (io.Reader, error) {
@@ -94,6 +129,10 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		log.Printf("closed file: %s", pathAndFilename)
+		f.Close()
+	}()
 
 	n, err := io.Copy(f, r)
 	if err != nil {

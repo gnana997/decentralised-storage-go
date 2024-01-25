@@ -45,3 +45,20 @@ func TestStore(t *testing.T) {
 		t.Errorf("expected %s, got %s", "dude chill!!!", string(b))
 	}
 }
+
+func TestDeleteKey(t *testing.T) {
+	opts := StoreOpts{
+		PathTransformFunc: CASPathTransformFunc,
+	}
+	s := NewStore(opts)
+	key := "TripTomorrow"
+	data := bytes.NewReader([]byte("dude chill!!!"))
+
+	if err := s.writeStream(key, data); err != nil {
+		t.Error(err)
+	}
+
+	if err := s.Delete(key); err != nil {
+		t.Error(err)
+	}
+}
