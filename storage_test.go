@@ -32,6 +32,10 @@ func TestStore(t *testing.T) {
 		t.Error(err)
 	}
 
+	if ok := s.Has(key); !ok {
+		t.Error("expected true, got false")
+	}
+
 	r, err := s.Read(key)
 	if err != nil {
 		t.Error(err)
@@ -43,6 +47,10 @@ func TestStore(t *testing.T) {
 	}
 	if string(b) != "dude chill!!!" {
 		t.Errorf("expected %s, got %s", "dude chill!!!", string(b))
+	}
+
+	if err := s.Delete(key); err != nil {
+		t.Error(err)
 	}
 }
 
