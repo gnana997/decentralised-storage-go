@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 )
@@ -21,32 +22,53 @@ func TestPathTransformFunc(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
+	s := newStore()
+	defer teardown(t, s)
+
+	for i := 0; i < 50; i++ {
+		key := fmt.Sprintf("Trip%d", i)
+		data := bytes.NewReader([]byte("dude chill!!!"))
+
+		if err := s.writeStream(key, data); err != nil {
+			t.Error(err)
+		}
+
+		if ok := s.Has(key); !ok {
+			t.Error("expected true, got false")
+		}
+
+		r, err := s.Read(key)
+		if err != nil {
+			t.Error(err)
+		}
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			t.Error(err)
+		}
+		if string(b) != "dude chill!!!" {
+			t.Errorf("expected %s, got %s", "dude chill!!!", string(b))
+		}
+
+		if err := s.Delete(key); err != nil {
+			t.Error(err)
+		}
+
+		if ok := s.Has(key); ok {
+			t.Error("expected false, got true")
+		}
 	}
-	s := NewStore(opts)
+}
+
+func TestDeleteKey(t *testing.T) {
+	s := newStore()
+	defer teardown(t, s)
+
 	key := "TripTomorrow"
 	data := bytes.NewReader([]byte("dude chill!!!"))
 
 	if err := s.writeStream(key, data); err != nil {
 		t.Error(err)
-	}
-
-	if ok := s.Has(key); !ok {
-		t.Error("expected true, got false")
-	}
-
-	r, err := s.Read(key)
-	if err != nil {
-		t.Error(err)
-	}
-
-	b, err := io.ReadAll(r)
-	if err != nil {
-		t.Error(err)
-	}
-	if string(b) != "dude chill!!!" {
-		t.Errorf("expected %s, got %s", "dude chill!!!", string(b))
 	}
 
 	if err := s.Delete(key); err != nil {
@@ -54,19 +76,15 @@ func TestStore(t *testing.T) {
 	}
 }
 
-func TestDeleteKey(t *testing.T) {
+func newStore() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
-	s := NewStore(opts)
-	key := "TripTomorrow"
-	data := bytes.NewReader([]byte("dude chill!!!"))
+	return NewStore(opts)
+}
 
-	if err := s.writeStream(key, data); err != nil {
-		t.Error(err)
-	}
-
-	if err := s.Delete(key); err != nil {
+func teardown(t *testing.T, s *Store) {
+	if err := s.Close(); err != nil {
 		t.Error(err)
 	}
 }

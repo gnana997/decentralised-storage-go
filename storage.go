@@ -162,3 +162,7 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 
 	return nil
 }
+
+func (s *Store) Close() error {
+	return os.RemoveAll(s.Root)
+}
