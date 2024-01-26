@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+	"log"
 
 	"github.com/gnana997/decentralised-storage-go/p2p"
 )
@@ -13,31 +13,37 @@ func OnPeer(peer p2p.Peer) error {
 	return nil
 }
 
-func main() {
+func makeServer(listenAddr string, nodes ...string) *FileServer {
 
 	tcpTransportOpts := p2p.TCPTransportOptions{
-		ListenAddr:    ":3000",
+		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.NOPDecoder{},
 	}
 	tcptransport := p2p.NewTCPTransport(tcpTransportOpts)
 
 	fileServerOpts := FileServerOpts{
-		RootFolder:        "3000_network",
-		PathTransformFunc: CASPathTransformFunc,
+		RootFolder:     listenAddr + "_network",
+		BootstrapNodes: nodes,
 
-		Transport: tcptransport,
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcptransport,
 	}
 
-	fs := NewFileServer(fileServerOpts)
+	s := NewFileServer(fileServerOpts)
+
+	tcptransport.OnPeer = s.OnPeer
+
+	return s
+}
+
+func main() {
+	s1 := makeServer(":3000", "")
+	s2 := makeServer(":4000", ":3000")
 
 	go func() {
-		time.Sleep(time.Second * 3)
-		fs.Stop()
+		log.Fatal(s1.Start())
 	}()
 
-	if err := fs.Start(); err != nil {
-		fmt.Println(err)
-		return
-	}
+	s2.Start()
 }
