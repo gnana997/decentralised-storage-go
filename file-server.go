@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -39,6 +42,54 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 	}
 }
 
+type Message struct {
+	From    string
+	Payload any
+}
+
+type DataMessage struct {
+	Key   string
+	Value []byte
+}
+
+func (fs *FileServer) broadcast(msg *Message) error {
+	peers := []io.Writer{}
+	for _, peer := range fs.peers {
+		peers = append(peers, peer)
+	}
+
+	mw := io.MultiWriter(peers...)
+
+	return gob.NewEncoder(mw).Encode(msg)
+}
+
+func (fs *FileServer) StoreData(key string, r io.Reader) error {
+	// 1. Store this file to disk
+	// 2. broadcast this file to all known peers in network
+	log.Println("Storing file", key)
+
+	buf := new(bytes.Buffer)
+	tee := io.TeeReader(r, buf)
+
+	if err := fs.store.Write(key, tee); err != nil {
+		return err
+	}
+
+	// the reader is empty now
+
+	fmt.Println(buf.Bytes())
+
+	p := &DataMessage{
+		Key:   key,
+		Value: buf.Bytes(),
+	}
+
+	return fs.broadcast(&Message{
+		From:    "TODO",
+		Payload: p,
+	})
+}
+
 func (fs *FileServer) Stop() {
 	close(fs.quitch)
 }
@@ -66,10 +117,26 @@ func (fs *FileServer) loop() {
 	for {
 		select {
 		case msg := <-fs.Transport.Consume():
-			fmt.Println(msg)
+			var m Message
+			if err := gob.NewDecoder(bytes.NewReader(msg.Payload)).Decode(&m); err != nil {
+				log.Fatal(err)
+			}
+
+			if err := fs.handleMessage(&m); err != nil {
+				log.Printf("error handling message: %s", err)
+			}
 		case <-fs.quitch:
 			return
 		}
+	}
+}
+
+func (fs *FileServer) handleMessage(msg *Message) error {
+	switch m := msg.Payload.(type) {
+	case *DataMessage:
+		return fs.StoreData(m.Key, bytes.NewReader(m.Value))
+	default:
+		return fmt.Errorf("unknown message type: %T", msg.Payload)
 	}
 }
 

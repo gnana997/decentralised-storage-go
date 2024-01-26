@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/gnana997/decentralised-storage-go/p2p"
 )
@@ -23,7 +26,7 @@ func makeServer(listenAddr string, nodes ...string) *FileServer {
 	tcptransport := p2p.NewTCPTransport(tcpTransportOpts)
 
 	fileServerOpts := FileServerOpts{
-		RootFolder:     listenAddr + "_network",
+		RootFolder:     "network_" + strings.Replace(listenAddr, ":", "", -1),
 		BootstrapNodes: nodes,
 
 		PathTransformFunc: CASPathTransformFunc,
@@ -45,5 +48,12 @@ func main() {
 		log.Fatal(s1.Start())
 	}()
 
-	s2.Start()
+	time.Sleep(2 * time.Second)
+	go s2.Start()
+	time.Sleep(2 * time.Second)
+
+	data := bytes.NewReader([]byte("It's a huge file"))
+	log.Fatal(s2.StoreData("test", data))
+
+	select {}
 }
