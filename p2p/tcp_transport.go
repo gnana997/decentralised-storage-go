@@ -138,6 +138,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	}
 
 	lenDecodeError := 0
+
 	//Read Loop
 	rpc := RPC{}
 	for {
@@ -154,7 +155,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 
 		rpc.From = conn.RemoteAddr()
 		peer.Wg.Add(1)
-		fmt.Println("waiting till stream is done")
+		fmt.Printf("(%s) waiting till stream is done\n", t.ListenAddr)
 		t.rpcch <- rpc
 		peer.Wg.Wait()
 		fmt.Println("stream is done")
