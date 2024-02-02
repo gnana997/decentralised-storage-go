@@ -57,6 +57,5 @@ func main() {
 		fmt.Printf("main error: %s", err)
 		log.Fatal(err)
 	}
-	fmt.Println("s2 has sent message to peers")
 	select {}
 }
