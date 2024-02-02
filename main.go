@@ -53,7 +53,10 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	data := bytes.NewReader([]byte("It's a huge file"))
-	log.Fatal(s2.StoreData("test", data))
-
+	if err := s2.StoreData("test", data); err != nil {
+		fmt.Printf("main error: %s", err)
+		log.Fatal(err)
+	}
+	fmt.Println("s2 has sent message to peers")
 	select {}
 }

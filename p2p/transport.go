@@ -6,6 +6,7 @@ import "net"
 // remote nodes in the network.
 type Peer interface {
 	net.Conn
+	Streamed()
 	Send([]byte) error
 }
 
