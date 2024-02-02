@@ -51,7 +51,7 @@ type MessageStoreFile struct {
 	Size     int64
 }
 
-func (fs *FileServer) broadcast(msg *Message) error {
+func (fs *FileServer) stream(msg *Message) error {
 	peers := []io.Writer{}
 	for _, peer := range fs.peers {
 		peers = append(peers, peer)
@@ -60,6 +60,24 @@ func (fs *FileServer) broadcast(msg *Message) error {
 	mw := io.MultiWriter(peers...)
 
 	return gob.NewEncoder(mw).Encode(msg)
+}
+
+func (fs *FileServer) broadcast(msg *Message) error {
+	buf := new(bytes.Buffer)
+
+	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
+		fmt.Printf("error with encoder: %v", err)
+		return err
+	}
+
+	for _, peer := range fs.peers {
+		if err := peer.Send(buf.Bytes()); err != nil {
+			fmt.Printf("error with sending: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // 1. Store this file to disk
@@ -82,20 +100,11 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 		},
 	}
 
-	msgBuf := new(bytes.Buffer)
-
-	if err := gob.NewEncoder(msgBuf).Encode(msg); err != nil {
-		fmt.Printf("error with encoder: %v", err)
+	if err := fs.broadcast(&msg); err != nil {
 		return err
 	}
 
-	for _, peer := range fs.peers {
-		if err := peer.Send(msgBuf.Bytes()); err != nil {
-			fmt.Printf("error with sending: %v", err)
-			return err
-		}
-	}
-
+	// TODO: (@gnana997) use a multiwriter here.
 	for _, peer := range fs.peers {
 		n, err := io.Copy(peer, payloadBuffer)
 		if err != nil {
