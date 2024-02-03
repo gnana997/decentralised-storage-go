@@ -38,7 +38,7 @@ func TestStore(t *testing.T) {
 			t.Error("expected true, got false")
 		}
 
-		r, err := s.Read(key)
+		_, r, err := s.Read(key)
 		if err != nil {
 			t.Error(err)
 		}

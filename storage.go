@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -115,28 +114,40 @@ func (s *Store) Write(key string, r io.Reader) (int64, error) {
 	return s.writeStream(key, r)
 }
 
-func (s *Store) Read(key string) (io.Reader, error) {
-	f, err := s.readStream(key)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+func (s *Store) Read(key string) (int64, io.Reader, error) {
+	return s.readStream(key)
+	// if err != nil {
+	// 	return 0, nil, err
+	// }
+	// defer f.Close()
 
-	buf := new(bytes.Buffer)
-	n, err := io.Copy(buf, f)
-	if err != nil {
-		return nil, err
-	}
+	// buf := new(bytes.Buffer)
+	// _, err = io.Copy(buf, f)
+	// if err != nil {
+	// 	return 0, nil, err
+	// }
 
-	log.Printf("read (%d) bytes from disk: %s", n, key)
-
-	return buf, nil
+	// return n, buf, nil
 }
 
-func (s *Store) readStream(key string) (io.ReadCloser, error) {
+func (s *Store) readStream(key string) (int64, io.ReadCloser, error) {
 	pathKey := s.PathTransformFunc(key)
 	pathKeyWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.FullPath())
-	return os.Open(pathKeyWithRoot)
+
+	file, err := os.Open(pathKeyWithRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil, err
+		}
+		return 0, nil, err
+	}
+
+	fi, err := file.Stat()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return fi.Size(), file, nil
 }
 
 func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
