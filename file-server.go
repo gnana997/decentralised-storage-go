@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/gnana997/decentralised-storage-go/p2p"
 )
@@ -64,13 +65,13 @@ func (fs *FileServer) stream(msg *Message) error {
 
 func (fs *FileServer) broadcast(msg *Message) error {
 	buf := new(bytes.Buffer)
-
 	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
 		fmt.Printf("error with encoder: %v", err)
 		return err
 	}
 
 	for _, peer := range fs.peers {
+		peer.Send([]byte{p2p.IncomingMessage})
 		if err := peer.Send(buf.Bytes()); err != nil {
 			fmt.Printf("error with sending: %v", err)
 			return err
@@ -141,15 +142,18 @@ func (fs *FileServer) StoreData(key string, r io.Reader) error {
 		return err
 	}
 
+	time.Sleep(2 * time.Millisecond)
+
 	// TODO: (@gnana997) use a multiwriter here.
 	for _, peer := range fs.peers {
+		peer.Send([]byte{p2p.IncomingStream})
 		n, err := io.Copy(peer, payloadBuffer)
 		if err != nil {
 			fmt.Printf("error with sending: %v", err)
 			return err
 		}
 
-		fmt.Println("received and written bytes to disk: ", n)
+		fmt.Printf("[%s] received and written bytes to disk: %d", fs.Transport.Addr(), n)
 	}
 
 	return nil
@@ -248,9 +252,9 @@ func (fs *FileServer) handleMessageStoreFile(from net.Addr, msg MessageStoreFile
 		return err
 	}
 
-	fmt.Printf("written %d bytes to disk: %s\n", msg.Size, msg.Filename)
+	fmt.Printf("[%s] written %d bytes to disk: %s\n", fs.Transport.Addr(), msg.Size, msg.Filename)
 
-	peer.Streamed()
+	peer.CloseStream()
 
 	return nil
 }

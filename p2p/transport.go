@@ -6,7 +6,7 @@ import "net"
 // remote nodes in the network.
 type Peer interface {
 	net.Conn
-	Streamed()
+	CloseStream()
 	Send([]byte) error
 }
 
@@ -14,6 +14,7 @@ type Peer interface {
 // between peers in the network. This can be of
 // form (TCP, UDP, websocket, etc)
 type Transport interface {
+	Addr() string
 	Connect(addr string) error
 	ListenAndAccept() error
 	Consume() <-chan RPC
